@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0a0a0f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>PolyMind – KI Aggregator</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --surface2: #1c1c27;
+    --border: #2a2a3a;
+    --accent-claude: #e8773a;
+    --accent-gpt: #19c37d;
+    --accent-gemini: #4285f4;
+    --accent-meta: #a855f7;
+    --text: #f0f0f5;
+    --text-muted: #6b6b80;
+    --text-dim: #9090a5;
+    --glow-claude: rgba(232,119,58,0.15);
+    --glow-gpt: rgba(25,195,125,0.15);
+    --glow-gemini: rgba(66,133,244,0.15);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app { position: relative; z-index: 1; max-width: 900px; margin: 0 auto; padding: 16px; }
+
+  /* Header */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 0 24px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 28px;
+  }
+
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    background: linear-gradient(135deg, #e8773a, #a855f7, #4285f4);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .logo span { font-weight: 400; opacity: 0.6; font-size: 0.75rem; display: block; letter-spacing: 0.1em; text-transform: uppercase; background: none; -webkit-text-fill-color: var(--text-muted); margin-top: 2px; }
+
+  .settings-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.05em;
+  }
+  .settings-btn:hover { border-color: var(--accent-claude); color: var(--accent-claude); }
+
+  /* Prompt area */
+  .prompt-section { margin-bottom: 20px; }
+
+  .prompt-label {
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+
+  .prompt-box {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    transition: border-color 0.2s;
+  }
+  .prompt-box:focus-within { border-color: #3a3a50; }
+
+  textarea {
+    width: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.88rem;
+    line-height: 1.6;
+    padding: 16px;
+    resize: none;
+    min-height: 100px;
+  }
+  textarea::placeholder { color: var(--text-muted); }
+
+  .prompt-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px 12px;
+    border-top: 1px solid var(--border);
+  }
+
+  .model-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  .pill {
+    font-size: 0.65rem;
+    padding: 3px 8px;
+    border-radius: 20px;
+    border: 1px solid;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .pill.claude { border-color: var(--accent-claude); color: var(--accent-claude); background: var(--glow-claude); }
+  .pill.gpt { border-color: var(--accent-gpt); color: var(--accent-gpt); background: var(--glow-gpt); }
+  .pill.gemini { border-color: var(--accent-gemini); color: var(--accent-gemini); background: var(--glow-gemini); }
+  .pill.disabled { opacity: 0.3; filter: grayscale(1); }
+
+  .send-btn {
+    background: linear-gradient(135deg, #e8773a, #c45a1f);
+    border: none;
+    color: white;
+    padding: 9px 20px;
+    border-radius: 8px;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .send-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(232,119,58,0.3); }
+  .send-btn:active { transform: translateY(0); }
+  .send-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  /* Results */
+  .results-section { display: none; }
+  .results-section.visible { display: block; }
+
+  .results-label {
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+  }
+
+  .responses-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  @media(min-width: 600px) {
+    .responses-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+
+  .response-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: all 0.3s;
+    animation: slideUp 0.4s ease forwards;
+    opacity: 0;
+  }
+  .response-card:nth-child(2) { animation-delay: 0.1s; }
+  .response-card:nth-child(3) { animation-delay: 0.2s; }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .response-card.claude { border-top: 2px solid var(--accent-claude); }
+  .response-card.gpt { border-top: 2px solid var(--accent-gpt); }
+  .response-card.gemini { border-top: 2px solid var(--accent-gemini); }
+
+  .response-card.winner {
+    box-shadow: 0 0 0 1px var(--accent-claude), 0 8px 32px rgba(232,119,58,0.2);
+  }
+  .response-card.winner.gpt {
+    box-shadow: 0 0 0 1px var(--accent-gpt), 0 8px 32px rgba(25,195,125,0.2);
+  }
+  .response-card.winner.gemini {
+    box-shadow: 0 0 0 1px var(--accent-gemini), 0 8px 32px rgba(66,133,244,0.2);
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .model-name {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+  .model-name.claude { color: var(--accent-claude); }
+  .model-name.gpt { color: var(--accent-gpt); }
+  .model-name.gemini { color: var(--accent-gemini); }
+
+  .score-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+  }
+
+  .winner-badge {
+    font-size: 0.6rem;
+    padding: 2px 7px;
+    border-radius: 20px;
+    background: rgba(232,119,58,0.15);
+    border: 1px solid var(--accent-claude);
+    color: var(--accent-claude);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  .card-body {
+    padding: 14px;
+    font-size: 0.8rem;
+    line-height: 1.65;
+    color: var(--text-dim);
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .card-body::-webkit-scrollbar { width: 4px; }
+  .card-body::-webkit-scrollbar-track { background: transparent; }
+  .card-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* Loading skeleton */
+  .loading-text {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+  }
+
+  .dot-anim { display: flex; gap: 3px; }
+  .dot-anim span {
+    width: 4px; height: 4px;
+    background: currentColor;
+    border-radius: 50%;
+    animation: blink 1.2s infinite;
+  }
+  .dot-anim span:nth-child(2) { animation-delay: 0.2s; }
+  .dot-anim span:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes blink {
+    0%, 80%, 100% { opacity: 0.2; }
+    40% { opacity: 1; }
+  }
+
+  /* Summary section */
+  .summary-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    animation: slideUp 0.4s ease 0.3s forwards;
+    opacity: 0;
+  }
+
+  .summary-header {
+    background: linear-gradient(135deg, rgba(232,119,58,0.1), rgba(168,85,247,0.1));
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .summary-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 0.02em;
+  }
+
+  .by-claude {
+    font-size: 0.6rem;
+    color: var(--accent-claude);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .summary-body {
+    padding: 16px;
+    font-size: 0.82rem;
+    line-height: 1.7;
+    color: var(--text-dim);
+  }
+
+  .recommendation-box {
+    margin-top: 14px;
+    padding: 12px 14px;
+    background: var(--surface2);
+    border-radius: 8px;
+    border-left: 3px solid var(--accent-claude);
+  }
+
+  .rec-label {
+    font-size: 0.6rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent-claude);
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+
+  .rec-text {
+    font-size: 0.82rem;
+    color: var(--text);
+    line-height: 1.6;
+  }
+
+  /* Settings Modal */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.8);
+    backdrop-filter: blur(4px);
+    z-index: 100;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    width: 100%;
+    max-width: 480px;
+    animation: slideUp 0.3s ease;
+    opacity: 1;
+  }
+
+  .modal-header {
+    padding: 20px 20px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .modal-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  .close-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 1.2rem;
+    padding: 4px;
+    transition: color 0.2s;
+  }
+  .close-btn:hover { color: var(--text); }
+
+  .modal-body { padding: 20px; }
+
+  .field-group { margin-bottom: 16px; }
+
+  .field-label {
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .field-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .field-dot.claude { background: var(--accent-claude); }
+  .field-dot.gpt { background: var(--accent-gpt); }
+  .field-dot.gemini { background: var(--accent-gemini); }
+
+  .field-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    padding: 10px 12px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .field-input:focus { border-color: #3a3a50; }
+  .field-input::placeholder { color: var(--text-muted); }
+
+  .save-btn {
+    width: 100%;
+    background: linear-gradient(135deg, #e8773a, #c45a1f);
+    border: none;
+    color: white;
+    padding: 12px;
+    border-radius: 8px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    margin-top: 4px;
+    transition: all 0.2s;
+  }
+  .save-btn:hover { box-shadow: 0 4px 20px rgba(232,119,58,0.3); }
+
+  .hint {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    margin-top: 12px;
+    line-height: 1.6;
+    padding: 10px 12px;
+    background: var(--surface2);
+    border-radius: 6px;
+    border-left: 2px solid var(--border);
+  }
+
+  .no-key-notice {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    text-align: center;
+    padding: 10px;
+    background: var(--surface2);
+    border-radius: 8px;
+    border: 1px dashed var(--border);
+    margin-bottom: 16px;
+  }
+
+  /* History */
+  .history-section { margin-top: 28px; }
+  .history-item {
+    padding: 10px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-bottom: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .history-item:hover { border-color: #3a3a50; color: var(--text); }
+
+  .error-text { color: #ff6b6b; font-size: 0.78rem; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div>
+      <div class="logo">PolyMind</div>
+      <span style="font-size:0.6rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);font-family:'JetBrains Mono',monospace;">KI Aggregator</span>
+    </div>
+    <button class="settings-btn" onclick="openSettings()">⚙ API Keys</button>
+  </header>
+
+  <div class="prompt-section">
+    <div class="prompt-label">// Dein Prompt</div>
+    <div class="prompt-box">
+      <textarea id="promptInput" placeholder="Stell deine Frage an alle KIs gleichzeitig..." rows="4"></textarea>
+      <div class="prompt-footer">
+        <div class="model-pills">
+          <div class="pill claude" id="pill-claude" onclick="toggleModel('claude')">Claude</div>
+          <div class="pill gpt" id="pill-gpt" onclick="toggleModel('gpt')">ChatGPT</div>
+          <div class="pill gemini" id="pill-gemini" onclick="toggleModel('gemini')">Gemini</div>
+        </div>
+        <button class="send-btn" id="sendBtn" onclick="sendPrompt()">
+          ▶ Senden
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="results-section" id="resultsSection">
+    <div class="results-label">// Antworten</div>
+    <div class="responses-grid" id="responsesGrid"></div>
+
+    <div class="results-label" style="margin-top:20px;">// Analyse & Empfehlung</div>
+    <div class="summary-card" id="summaryCard">
+      <div class="summary-header">
+        <div class="summary-title">Zusammenfassung & Bewertung</div>
+        <div class="by-claude">by Claude</div>
+      </div>
+      <div class="summary-body" id="summaryBody">
+        <div class="loading-text">Claude analysiert <div class="dot-anim"><span></span><span></span><span></span></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">API Keys</div>
+      <button class="close-btn" onclick="closeSettings()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="no-key-notice">
+        Keys werden nur lokal in deinem Browser gespeichert – nie übertragen.
+      </div>
+
+      <div class="field-group">
+        <div class="field-label"><div class="field-dot claude"></div> Anthropic (Claude)</div>
+        <input class="field-input" id="key-claude" type="password" placeholder="sk-ant-..." value="">
+      </div>
+      <div class="field-group">
+        <div class="field-label"><div class="field-dot gpt"></div> OpenAI (ChatGPT)</div>
+        <input class="field-input" id="key-gpt" type="password" placeholder="sk-..." value="">
+      </div>
+      <div class="field-group">
+        <div class="field-label"><div class="field-dot gemini"></div> Google (Gemini)</div>
+        <input class="field-input" id="key-gemini" type="password" placeholder="AIza..." value="">
+      </div>
+
+      <button class="save-btn" onclick="saveKeys()">Keys speichern</button>
+
+      <div class="hint">
+        🔑 <b>Keys besorgen:</b><br>
+        Claude: console.anthropic.com<br>
+        ChatGPT: platform.openai.com<br>
+        Gemini: aistudio.google.com
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // State
+  let keys = { claude: '', gpt: '', gemini: '' };
+  let activeModels = { claude: true, gpt: true, gemini: true };
+
+  // Load saved keys
+  try {
+    const saved = localStorage.getItem('polymind_keys');
+    if (saved) keys = JSON.parse(saved);
+  } catch(e) {}
+
+  function openSettings() {
+    document.getElementById('key-claude').value = keys.claude || '';
+    document.getElementById('key-gpt').value = keys.gpt || '';
+    document.getElementById('key-gemini').value = keys.gemini || '';
+    document.getElementById('settingsModal').classList.add('open');
+  }
+
+  function closeSettings() {
+    document.getElementById('settingsModal').classList.remove('open');
+  }
+
+  function saveKeys() {
+    keys.claude = document.getElementById('key-claude').value.trim();
+    keys.gpt = document.getElementById('key-gpt').value.trim();
+    keys.gemini = document.getElementById('key-gemini').value.trim();
+    try { localStorage.setItem('polymind_keys', JSON.stringify(keys)); } catch(e) {}
+    closeSettings();
+    showToast('Keys gespeichert ✓');
+  }
+
+  function toggleModel(model) {
+    activeModels[model] = !activeModels[model];
+    document.getElementById('pill-' + model).classList.toggle('disabled', !activeModels[model]);
+  }
+
+  function showToast(msg) {
+    const t = document.createElement('div');
+    t.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1c1c27;border:1px solid #2a2a3a;color:#f0f0f5;padding:10px 18px;border-radius:8px;font-size:0.78rem;font-family:JetBrains Mono,monospace;z-index:999;animation:slideUp 0.3s ease;opacity:1;';
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 2500);
+  }
+
+  // API calls
+  async function callClaude(prompt, apiKey) {
+    const res = await fetch('https://corsproxy.io/?https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 600,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    if (!res.ok) throw new Error('Claude API Fehler: ' + res.status);
+    const data = await res.json();
+    return data.content[0].text;
+  }
+
+  async function callGPT(prompt, apiKey) {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + apiKey
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        max_tokens: 600,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    if (!res.ok) throw new Error('ChatGPT API Fehler: ' + res.status);
+    const data = await res.json();
+    return data.choices[0].message.content;
+  }
+
+  async function callGemini(prompt, apiKey) {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { maxOutputTokens: 600 }
+      })
+    });
+    if (!res.ok) throw new Error('Gemini API Fehler: ' + res.status);
+    const data = await res.json();
+    return data.candidates[0].content.parts[0].text;
+  }
+
+  async function analyzeWithClaude(prompt, responses) {
+    const systemPrompt = `Du bist ein neutraler KI-Evaluator. Analysiere die folgenden Antworten verschiedener KI-Modelle auf einen Prompt.
+    
+Gib zurück:
+1. Eine kurze Zusammenfassung der Hauptunterschiede zwischen den Antworten
+2. Bewertung jedes Modells von 1-10 mit kurzer Begründung
+3. Eine klare Empfehlung, welche Antwort am besten ist und warum
+
+Antworte auf Deutsch und sei präzise und direkt.`;
+
+    const userMsg = `Prompt: "${prompt}"\n\nAntworten:\n${responses.map(r => `**${r.model}:** ${r.text}`).join('\n\n')}`;
+
+    const res = await fetch('https://corsproxy.io/?https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': keys.claude,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 800,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userMsg }]
+      })
+    });
+    if (!res.ok) throw new Error('Analyse Fehler');
+    const data = await res.json();
+    return data.content[0].text;
+  }
+
+  const modelConfig = {
+    claude: { name: 'Claude', label: 'Anthropic', fn: callClaude },
+    gpt: { name: 'ChatGPT', label: 'OpenAI', fn: callGPT },
+    gemini: { name: 'Gemini', label: 'Google', fn: callGemini }
+  };
+
+  async function sendPrompt() {
+    const prompt = document.getElementById('promptInput').value.trim();
+    if (!prompt) return showToast('Bitte einen Prompt eingeben');
+
+    const modelsToQuery = Object.keys(activeModels).filter(m => activeModels[m] && keys[m]);
+    if (modelsToQuery.length === 0) {
+      openSettings();
+      showToast('Bitte zuerst API Keys eingeben');
+      return;
+    }
+
+    // Show results section
+    document.getElementById('resultsSection').classList.add('visible');
+    document.getElementById('sendBtn').disabled = true;
+
+    // Build loading cards
+    const grid = document.getElementById('responsesGrid');
+    grid.innerHTML = '';
+    modelsToQuery.forEach(m => {
+      const cfg = modelConfig[m];
+      grid.innerHTML += `
+        <div class="response-card ${m}" id="card-${m}">
+          <div class="card-header">
+            <div class="model-name ${m}">${cfg.name}</div>
+            <div class="score-badge" id="score-${m}">–</div>
+          </div>
+          <div class="card-body" id="body-${m}">
+            <div class="loading-text">Anfrage läuft <div class="dot-anim"><span></span><span></span><span></span></div></div>
+          </div>
+        </div>`;
+    });
+
+    // Reset summary
+    document.getElementById('summaryBody').innerHTML = '<div class="loading-text">Warte auf Antworten <div class="dot-anim"><span></span><span></span><span></span></div></div>';
+    document.getElementById('summaryCard').style.opacity = '0';
+    document.getElementById('summaryCard').style.animation = 'none';
+
+    // Query all models in parallel
+    const results = await Promise.allSettled(
+      modelsToQuery.map(async m => {
+        try {
+          const text = await modelConfig[m].fn(prompt, keys[m]);
+          document.getElementById('body-' + m).textContent = text;
+          return { model: modelConfig[m].name, modelKey: m, text };
+        } catch(e) {
+          document.getElementById('body-' + m).innerHTML = `<span class="error-text">Fehler: ${e.message}</span>`;
+          return null;
+        }
+      })
+    );
+
+    const successful = results
+      .filter(r => r.status === 'fulfilled' && r.value)
+      .map(r => r.value);
+
+    // Analyze with Claude
+    if (successful.length > 0 && keys.claude) {
+      try {
+        document.getElementById('summaryBody').innerHTML = '<div class="loading-text">Claude analysiert <div class="dot-anim"><span></span><span></span><span></span></div></div>';
+        const analysis = await analyzeWithClaude(prompt, successful);
+
+        // Parse scores from analysis (simple heuristic)
+        const scoreMatches = analysis.match(/(\d+(?:[,\.]\d+)?)\s*\/\s*10/g) || [];
+
+        successful.forEach((r, i) => {
+          if (scoreMatches[i]) {
+            document.getElementById('score-' + r.modelKey).textContent = scoreMatches[i];
+          }
+        });
+
+        // Find best score to mark winner
+        let bestScore = 0, bestModel = null;
+        successful.forEach((r, i) => {
+          const scoreEl = document.getElementById('score-' + r.modelKey);
+          const scoreText = scoreEl.textContent;
+          const num = parseFloat(scoreText.replace(',', '.'));
+          if (!isNaN(num) && num > bestScore) {
+            bestScore = num;
+            bestModel = r.modelKey;
+          }
+        });
+
+        if (bestModel) {
+          document.getElementById('card-' + bestModel).classList.add('winner');
+          const scoreEl = document.getElementById('score-' + bestModel);
+          scoreEl.insertAdjacentHTML('afterend', '<div class="winner-badge">★ Best</div>');
+        }
+
+        // Split analysis into summary and recommendation
+        const recMatch = analysis.match(/empfehlung[:\s]*(.+?)(?:\n|$)/i);
+        let summaryText = analysis;
+        let recText = '';
+
+        if (recMatch) {
+          recText = recMatch[1].trim();
+          summaryText = analysis.replace(recMatch[0], '').trim();
+        }
+
+        document.getElementById('summaryBody').innerHTML = `
+          <div style="white-space:pre-wrap;">${summaryText}</div>
+          ${recText ? `<div class="recommendation-box">
+            <div class="rec-label">▸ Empfehlung</div>
+            <div class="rec-text">${recText}</div>
+          </div>` : ''}
+        `;
+
+      } catch(e) {
+        document.getElementById('summaryBody').innerHTML = `<span class="error-text">Analyse Fehler: ${e.message}</span>`;
+      }
+    } else if (!keys.claude) {
+      document.getElementById('summaryBody').innerHTML = '<span style="color:var(--text-muted);font-size:0.78rem;">Claude API Key benötigt für die Analyse. Bitte in den Einstellungen eintragen.</span>';
+    }
+
+    // Animate summary
+    const sc = document.getElementById('summaryCard');
+    sc.style.animation = 'slideUp 0.4s ease forwards';
+    sc.style.opacity = '0';
+
+    document.getElementById('sendBtn').disabled = false;
+    document.getElementById('sendBtn').textContent = '▶ Erneut senden';
+  }
+
+  // Enter key support
+  document.getElementById('promptInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) sendPrompt();
+  });
+</script>
+</body>
+</html>
